@@ -14,15 +14,26 @@ def get_listings(page, trys):
     else:
         return res
 
+print('\n Getting items...', end='')
+conn = psycopg2.connect(dbname='cardanocity', port=5432)
+cur = conn.cursor()
+cur.execute("select * from items")
+items = cur.fetchall()
+cur.close()
+conn.close()
+print('done\n')
+
 while True:
     start = datetime.now()
 
+    print(' Getting assets...', end='')
     conn = psycopg2.connect(dbname='cexplorer', port=5432)
     cur = conn.cursor()
     cur.execute("select block.time,tx_metadata.json from ma_tx_mint inner join tx_metadata on ma_tx_mint.tx_id = tx_metadata.tx_id inner join tx on ma_tx_mint.tx_id = tx.id inner join block on tx.block_id = block.id where ma_tx_mint.policy = '\\xa5425bd7bc4182325188af2340415827a73f845846c165d9e14c5aed'")
     txs = cur.fetchall()
     cur.close()
     conn.close()
+    print('done\n')
 
     txs = [[tx[0], tx[1]['a5425bd7bc4182325188af2340415827a73f845846c165d9e14c5aed']] for tx in txs]
     assets = []
@@ -34,10 +45,16 @@ while True:
 
     assets = { each['name'] : each for each in assets }.values()
     assets = sorted(assets, key=lambda k: k['name'])
-    print('\n Total assets:', len(assets))
+    print(' Total assets:', len(assets))
 
-    print('\n Pulling listings\n')
+    print('\n Debloating json...', end='')
+    for asset in assets:
+        item_list = []
+        for content in asset['contents']:
+            item_list.append([item[0] for item in items if item[1]['name'] == content['name']][0])
+        asset['contents'] = item_list
 
+    print('done\n\n Pulling listings\n')
     page = 1
     listings = []
     while True:
@@ -65,19 +82,22 @@ while True:
         a_l_combined.append([asset, [{'name': listing['metadata']['name'], 'id': listing['id'], 'sold': listing['sold'], 'price': listing['price']} for listing in listings if listing['metadata']['name'] == asset['name']]])
 
     print('\n\n Inserting assets\n')
-
-    conn = psycopg2.connect(dbname='cnft', port=5432)
+    conn = psycopg2.connect(dbname='cardanocity', port=5432)
     cur = conn.cursor()
-
-    for listing in a_l_combined:
+    for asset in a_l_combined:
         print('                         ', end='\r')
-        print(' ' + listing[0]['name'], end='\r')
-        if listing[1] != []:
-            cur.execute('insert into cnftio(name,metadata,listing) values(\'' + listing[0]['name'] + '\',\'' + json.dumps(listing[0]).replace("\'", "\'\'") + '\',\'' + json.dumps(listing[1][0]).replace("\'", "\'\'") + '\') on conflict (name) do update set metadata=excluded.metadata,listing=excluded.listing')
+        print(' ' + asset[0]['name'], end='\r')
+        if asset[1] != []:
+            if asset[0]['name'][:-5] == 'CardanoCityUnit':
+                cur.execute('insert into units(name,metadata,listing) values(\'' + asset[0]['name'] + '\',\'' + json.dumps(asset[0]).replace("\'", "\'\'") + '\',\'' + json.dumps(asset[1][0]).replace("\'", "\'\'") + '\') on conflict (name) do update set metadata=excluded.metadata,listing=excluded.listing')
+            if asset[0]['name'][:-7] == 'CardanoCityPoster':
+                cur.execute('insert into posters(name,metadata,listing) values(\'' + asset[0]['name'] + '\',\'' + json.dumps(asset[0]).replace("\'", "\'\'") + '\',\'' + json.dumps(asset[1][0]).replace("\'", "\'\'") + '\') on conflict (name) do update set metadata=excluded.metadata,listing=excluded.listing')
         else:
-            cur.execute('insert into cnftio(name,metadata,listing) values(\'' + listing[0]['name'] + '\',\'' + json.dumps(listing[0]).replace("\'", "\'\'") +  '\',NULL) on conflict (name) do update set metadata=excluded.metadata,listing=excluded.listing')
+            if asset[0]['name'][:-5] == 'CardanoCityUnit':
+                cur.execute('insert into units(name,metadata,listing) values(\'' + asset[0]['name'] + '\',\'' + json.dumps(asset[0]).replace("\'", "\'\'") +  '\',NULL) on conflict (name) do update set metadata=excluded.metadata,listing=excluded.listing')
+            if asset[0]['name'][:-7] == 'CardanoCityPoster':
+                cur.execute('insert into posters(name,metadata,listing) values(\'' + asset[0]['name'] + '\',\'' + json.dumps(asset[0]).replace("\'", "\'\'") +  '\',NULL) on conflict (name) do update set metadata=excluded.metadata,listing=excluded.listing')
         conn.commit()
-
     cur.close()
     conn.close()
     finish = datetime.now()
