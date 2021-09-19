@@ -17,7 +17,7 @@ def get_listings(page, trys):
     except:
         return get_listings(page, trys)
 
-    print('\n Getting items...', end='')
+print('\n Getting items...', end='')
 
 conn = psycopg2.connect(dbname='cardanocity', port=5432)
 cur = conn.cursor()
