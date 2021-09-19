@@ -17,19 +17,17 @@ assets = []
 
 for tx in txs:
     for asset in tx[1]:
-        tx[1][asset].update({'minted': tx[0].strftime("%Y-%m-%dT%H:%M:%S")})
         assets.append(tx[1][asset])
 
 assets = { each['name'] : each for each in assets }.values()
-assets = sorted(assets, key=lambda k: k['name'])
 print(' Total assets:', len(assets))
 
 print('\n Getting items...', end='')
 items = []
 for asset in assets:
     if asset['contents'] != []:
-            for item in asset['contents']:
-                    items.append(item)
+        for item in asset['contents']:
+            items.append(item)
 
 items = { each['name'] : each for each in items }.values()
 items = sorted(items, key=lambda k: int(k['instances']))
@@ -43,7 +41,7 @@ cur = conn.cursor()
 for i, item in enumerate(items, 1):
     print('                                      ', end='\r')
     print('', item['name'], end='\r')
-    cur.execute('insert into items(id,metadata) values(\'' + str(i) + '\',\'' + json.dumps(item).replace("\'", "\'\'") + '\')')
+    cur.execute('insert into items(id,metadata) values(\'' + str(i) + '\',\'' + json.dumps(item).replace("\'", "\'\'") + '\') on conflict (id) do update set metadata=excluded.metadata')
     conn.commit()
 cur.close()
 conn.close()
