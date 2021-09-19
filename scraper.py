@@ -7,13 +7,15 @@ from datetime import datetime
 
 def get_listings(page, trys):
     payload = {'search': 'CardanoCity', 'sort': 'price', 'order': 'asc', 'page': page, 'verified': 'true'}
-    res = requests.post('https://api.cnft.io/market/listings', data=payload)
-    if res.status_code != 200 and trys < 3:
-        trys += 1
+    try:
+        res = requests.post('https://api.cnft.io/market/listings', data=payload)
+        if res.status_code != 200 and trys < 3:
+            trys += 1
+            return get_listings(page, trys)
+        else:
+            return res
+    except:
         return get_listings(page, trys)
-    else:
-        return res
-
 print('\n Getting items...', end='')
 conn = psycopg2.connect(dbname='cardanocity', port=5432)
 cur = conn.cursor()
@@ -38,16 +40,19 @@ while True:
     txs = [[tx[0], tx[1]['a5425bd7bc4182325188af2340415827a73f845846c165d9e14c5aed']] for tx in txs]
     assets = []
 
+    remove = ['files', 'mediaType', 'description', 'numberOfItems']
     for tx in txs:
         for asset in tx[1]:
             tx[1][asset].update({'minted': tx[0].strftime("%Y-%m-%dT%H:%M:%S")})
+            for key in remove:
+                del tx[1][asset][key]
             assets.append(tx[1][asset])
 
     assets = { each['name'] : each for each in assets }.values()
     assets = sorted(assets, key=lambda k: k['name'])
     print(' Total assets:', len(assets))
 
-    print('\n Debloating json...', end='')
+    print('\n Debloating contents...', end='')
     for asset in assets:
         item_list = []
         for content in asset['contents']:
