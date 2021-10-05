@@ -15,7 +15,7 @@ mikkas = [[m, cv2.imread(m + '.png')] for m in mikkas]
 
 def get_image(ipfs_hash):
     print(' Getting', ipfs_hash)
-    res = requests.get('https://infura-ipfs.io/ipfs/' + unit['image'][7:])
+    res = requests.get('https://infura-ipfs.io/ipfs/' + ipfs_hash)
     if res.status_code == 200:
         print(' done')
         return res.content
